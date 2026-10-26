@@ -33,7 +33,7 @@
           zigBuildFlags = [ "-Doptimize=ReleaseFast" ];
           meta = {
             description = "C client library for duckwm's IPC socket";
-            homepage = "https://github.com/DuckTapeMan35/duckwm_zig";
+            homepage = "https://github.com/DuckTapeMan35/libduckwm";
             license = pkgs.lib.licenses.gpl3Plus;
             platforms = pkgs.lib.platforms.linux;
             pkgConfigModules = [ "duckwm" ];

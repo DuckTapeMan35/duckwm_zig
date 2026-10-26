@@ -1,4 +1,4 @@
-# duckwm_zig
+# libduckwm
 
 Zig and C client libraries for [duckwm](https://github.com/DuckTapeMan35/duckwm):
 the same thing as duckwm_rs and duckwm_py, written once in Zig and exported
@@ -22,7 +22,7 @@ Blocking and single-threaded: callbacks run inside `run`, `serve` and
 ## Zig
 
 ```sh
-zig fetch --save git+https://github.com/DuckTapeMan35/duckwm_zig
+zig fetch --save git+https://github.com/DuckTapeMan35/libduckwm
 ```
 
 ```zig
