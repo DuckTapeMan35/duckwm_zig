@@ -1,0 +1,13 @@
+# pkg-config for libduckwm, the C client for duckwm's socket. Relocatable:
+# the prefix is wherever this file was installed (<prefix>/lib/pkgconfig).
+prefix=${pcfiledir}/../..
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: duckwm
+Description: Client library for duckwm's IPC socket
+URL: https://github.com/DuckTapeMan35/duckwm
+Version: 0.1.0
+Libs: -L${libdir} -lduckwm
+Cflags: -I${includedir}
+

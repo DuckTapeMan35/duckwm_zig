@@ -1,0 +1,40 @@
+name: Sync from duckwm
+
+on:
+  repository_dispatch:
+    types: [duckwm-client-changed]  # sent by duckwm's notify-zig workflow
+  workflow_dispatch:                # the "Run workflow" button
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch duckwm
+        uses: actions/checkout@v4
+        with:
+          repository: DuckTapeMan35/duckwm
+          ref: ${{ github.event.client_payload.sha || 'main' }}
+          path: upstream
+
+      - uses: cachix/install-nix-action@v31
+
+      - name: Sync
+        run: nix develop --command env DUCKWM_SRC="$PWD/upstream" ./scripts/sync
+
+      - name: Test
+        run: nix develop --command zig build test examples
+
+      - name: Commit if anything changed
+        run: |
+          if git diff --quiet -- src include; then echo "already up to date"; exit 0; fi
+          upstream=$(git -C upstream rev-parse --short HEAD)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add src include
+          git commit -m "Sync from duckwm $upstream"
+          git push

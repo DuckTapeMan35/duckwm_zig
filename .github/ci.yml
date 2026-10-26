@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+
+      - name: Tests
+        run: nix develop --command zig build test --summary all
+
+      - name: Examples (C with -pedantic -Werror, and Zig)
+        run: nix develop --command zig build examples
+
+      - name: The C header is up to date with src/upstream
+        run: |
+          nix develop --command zig build c
+          git diff --exit-code -- include/duckwm.h src/c_types.zig
+
+      - name: libduckwm builds with Nix
+        run: nix build .#libduckwm -L

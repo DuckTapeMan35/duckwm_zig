@@ -1,0 +1,10 @@
+#!/bin/sh
+# Copy the client core from a duckwm checkout ($DUCKWM_SRC, default ../duckwm)
+# into src/upstream, then regenerate the C header and types from it. CI runs
+# this whenever duckwm's copies change; see .github/workflows/sync.yml.
+set -eu
+src=${DUCKWM_SRC:-../duckwm}
+for f in protocol.zig wire.zig json.zig client.zig gen_common.zig; do
+    cp "$src/src/$f" "src/upstream/$f"
+done
+zig build c

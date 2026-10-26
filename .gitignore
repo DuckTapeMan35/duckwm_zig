@@ -2,3 +2,8 @@
 zig-out/
 zig-pkg/
 *.o
+
+# nix
+result
+result-*
+.direnv/
