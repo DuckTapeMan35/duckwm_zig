@@ -159,6 +159,15 @@ pub const Client = struct {
         return c.run_one(arena, .{ .add_rule = .{ .callback = try c.register(h) } });
     }
 
+    /// Be told what changed, once it's committed: h gets args .notice,
+    /// { topic, serial, id }, from serve or dispatch. duckwm doesn't wait for
+    /// it; the commands its Reply holds run as a request of their own.
+    /// Returns its id, for unsubscribe.
+    pub fn subscribe(c: *Client, arena: Allocator, topic: protocol.Topic, h: Handler) Error!u32 {
+        const v = try c.run_one(arena, .{ .subscribe = .{ .topic = topic, .callback = try c.register(h) } });
+        return std.math.cast(u32, value.int(v) orelse return error.Unexpected) orelse error.Unexpected;
+    }
+
     /// Open the input bar; h gets args .line, { text }, on Enter.
     pub fn read_line(c: *Client, arena: Allocator, prompt: []const u8, initial: ?[]const u8, h: Handler) Error!void {
         _ = try c.run_one(
@@ -361,6 +370,10 @@ const Fake = struct {
         f.frame(try wire.encode_server_call(f.arena.allocator(), .{ .callback = callback, .args = args, .nested = true }));
     }
 
+    fn event(f: *Fake, callback: u64, notice: protocol.Notice) !void {
+        f.frame(try wire.encode_server_event(f.arena.allocator(), .{ .callback = callback, .notice = notice }));
+    }
+
     fn recv(f: *Fake) !protocol.ClientMessage {
         const a = f.arena.allocator();
         var len: [4]u8 = undefined;
@@ -438,6 +451,33 @@ test "within adds up, and end_within puts the scope back" {
     };
     try f.respond(&.{.{ .list = &.{.{ .map = &ws }} }});
     try testing.expectEqual(@as(?u32, 12), (try c.get_workspace_states(a))[0].id);
+}
+
+const Watch = struct {
+    var last: ?protocol.Notice = null;
+
+    fn on(_: *Client, args: CallArgs, _: Allocator) anyerror!Reply {
+        last = args.notice;
+        return .{};
+    }
+};
+
+test "subscribe, and an event from dispatch that isn't answered" {
+    var c, var f = try pair();
+    defer teardown(&c, &f);
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+
+    try f.respond(&.{.{ .integer = 3 }});
+    try testing.expectEqual(@as(u32, 3), try c.subscribe(a, .focus, .func_of(Watch.on)));
+    const sub = (try f.recv()).request.commands[0].subscribe;
+    try testing.expectEqual(protocol.Topic.focus, sub.topic);
+
+    try f.event(sub.callback.id, .{ .topic = .focus, .serial = 8, .id = 5 });
+    try c.dispatch();
+    try testing.expectEqual(@as(?u32, 5), Watch.last.?.id);
+    try testing.expectEqual(@as(u64, 8), Watch.last.?.serial);
 }
 
 test "the arranger handshake" {

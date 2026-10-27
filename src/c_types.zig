@@ -184,6 +184,7 @@ pub const duckwm_command_kind = enum(c_int) {
     @"get_arranger_index" = 907,
     @"set_arranger_index" = 908,
     @"print_graph_pretty" = 909,
+    @"get_scene" = 910,
     @"get_outputs" = 1000,
     @"focus_output" = 1001,
     @"send_to_output" = 1002,
@@ -197,6 +198,8 @@ pub const duckwm_command_kind = enum(c_int) {
     @"set_group_outline_of" = 1106,
     @"focus_parent" = 1107,
     @"focus_child" = 1108,
+    @"subscribe" = 1200,
+    @"unsubscribe" = 1201,
     _,
 };
 
@@ -306,6 +309,14 @@ pub const duckwm_constraint_spec_kind = enum(c_int) {
     _,
 };
 
+pub const duckwm_topic = enum(c_int) {
+    @"scene" = 0,
+    @"focus" = 1,
+    @"names" = 2,
+    @"outputs" = 3,
+    _,
+};
+
 pub const duckwm_value_kind = enum(c_int) {
     @"nil" = 0,
     @"boolean" = 1,
@@ -324,6 +335,7 @@ pub const duckwm_call_args_kind = enum(c_int) {
     @"arranger" = 2,
     @"factory" = 3,
     @"line" = 4,
+    @"notice" = 5,
     _,
 };
 
@@ -766,6 +778,11 @@ pub const duckwm_eval_args = extern struct {
     @"source": ?[*:0]const u8,
 };
 
+pub const duckwm_get_layout_args = extern struct {
+    has_id: bool,
+    @"id": u32,
+};
+
 pub const duckwm_layout_spec = extern struct {
     @"nodes": ?[*]const duckwm_node_spec,
     nodes_len: usize,
@@ -888,6 +905,15 @@ pub const duckwm_set_group_outline_of_args = extern struct {
     @"color": u32,
 };
 
+pub const duckwm_subscribe_args = extern struct {
+    @"topic": duckwm_topic,
+    @"callback": duckwm_callback,
+};
+
+pub const duckwm_unsubscribe_args = extern struct {
+    @"id": u32,
+};
+
 pub const duckwm_value_list = extern struct {
     items: ?[*]const duckwm_value,
     len: usize,
@@ -940,6 +966,13 @@ pub const duckwm_window_info = extern struct {
 
 pub const duckwm_call_args_line = extern struct {
     @"text": ?[*:0]const u8,
+};
+
+pub const duckwm_notice = extern struct {
+    @"topic": duckwm_topic,
+    @"serial": u64,
+    has_id: bool,
+    @"id": u32,
 };
 
 pub const duckwm_add_rule_args = extern struct {
@@ -1141,6 +1174,7 @@ pub const duckwm_command = extern struct {
         @"setenv": duckwm_setenv_args,
         @"exec_once": duckwm_exec_once_args,
         @"eval": duckwm_eval_args,
+        @"get_layout": duckwm_get_layout_args,
         @"set_layout": duckwm_set_layout_args,
         @"set_arranger": duckwm_set_arranger_args,
         @"register_arranger": duckwm_register_arranger_args,
@@ -1156,6 +1190,8 @@ pub const duckwm_command = extern struct {
         @"get_group_members": duckwm_one,
         @"set_group_outline": duckwm_set_group_outline_args,
         @"set_group_outline_of": duckwm_set_group_outline_of_args,
+        @"subscribe": duckwm_subscribe_args,
+        @"unsubscribe": duckwm_unsubscribe_args,
     },
 };
 
@@ -1165,6 +1201,7 @@ pub const duckwm_call_args = extern struct {
         @"rule": duckwm_call_args_rule,
         @"arranger": duckwm_snapshot,
         @"line": duckwm_call_args_line,
+        @"notice": duckwm_notice,
     },
 };
 

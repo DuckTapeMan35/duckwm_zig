@@ -17,6 +17,10 @@ to C as `libduckwm`.
   (`"DP-1/web"`); `c.within(arena, "web")` ... `c.end_within(arena, w)`
   (`duckwm_within` / `duckwm_within_end`) makes the binds, rules and gaps set
   up between apply only there.
+- **Subscriptions**: `c.subscribe(arena, .focus, handler)` /
+  `duckwm_subscribe_to(c, DUCKWM_TOPIC_FOCUS, handler, userdata)`: the handler
+  gets a `notice` (topic, scene serial, node id) once a change is committed,
+  from `serve` or `dispatch`. duckwm doesn't wait for it.
 - **`forever`** keeps a config up across duckwm restarts.
 
 Blocking and single-threaded: callbacks run inside `run`, `serve` and

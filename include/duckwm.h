@@ -106,6 +106,7 @@ typedef struct duckwm_spawn_args duckwm_spawn_args;
 typedef struct duckwm_setenv_args duckwm_setenv_args;
 typedef struct duckwm_exec_once_args duckwm_exec_once_args;
 typedef struct duckwm_eval_args duckwm_eval_args;
+typedef struct duckwm_get_layout_args duckwm_get_layout_args;
 typedef struct duckwm_set_layout_args duckwm_set_layout_args;
 typedef struct duckwm_layout_spec duckwm_layout_spec;
 typedef struct duckwm_node_spec duckwm_node_spec;
@@ -131,6 +132,8 @@ typedef struct duckwm_create_group_args duckwm_create_group_args;
 typedef struct duckwm_move_to_group_args duckwm_move_to_group_args;
 typedef struct duckwm_set_group_outline_args duckwm_set_group_outline_args;
 typedef struct duckwm_set_group_outline_of_args duckwm_set_group_outline_of_args;
+typedef struct duckwm_subscribe_args duckwm_subscribe_args;
+typedef struct duckwm_unsubscribe_args duckwm_unsubscribe_args;
 typedef struct duckwm_value duckwm_value;
 typedef struct duckwm_value_field duckwm_value_field;
 typedef struct duckwm_call_args duckwm_call_args;
@@ -139,6 +142,7 @@ typedef struct duckwm_snapshot duckwm_snapshot;
 typedef struct duckwm_rect duckwm_rect;
 typedef struct duckwm_window_info duckwm_window_info;
 typedef struct duckwm_call_args_line duckwm_call_args_line;
+typedef struct duckwm_notice duckwm_notice;
 
 typedef enum duckwm_command_kind {
     DUCKWM_COMMAND_FOCUS_LEFT = 1,
@@ -323,6 +327,7 @@ typedef enum duckwm_command_kind {
     DUCKWM_COMMAND_GET_ARRANGER_INDEX = 907,
     DUCKWM_COMMAND_SET_ARRANGER_INDEX = 908,
     DUCKWM_COMMAND_PRINT_GRAPH_PRETTY = 909,
+    DUCKWM_COMMAND_GET_SCENE = 910,
     DUCKWM_COMMAND_GET_OUTPUTS = 1000,
     DUCKWM_COMMAND_FOCUS_OUTPUT = 1001,
     DUCKWM_COMMAND_SEND_TO_OUTPUT = 1002,
@@ -336,6 +341,8 @@ typedef enum duckwm_command_kind {
     DUCKWM_COMMAND_SET_GROUP_OUTLINE_OF = 1106,
     DUCKWM_COMMAND_FOCUS_PARENT = 1107,
     DUCKWM_COMMAND_FOCUS_CHILD = 1108,
+    DUCKWM_COMMAND_SUBSCRIBE = 1200,
+    DUCKWM_COMMAND_UNSUBSCRIBE = 1201,
 } duckwm_command_kind;
 
 typedef enum duckwm_axis {
@@ -433,6 +440,13 @@ typedef enum duckwm_constraint_spec_kind {
     DUCKWM_CONSTRAINT_SPEC_SPLIT = 17,
 } duckwm_constraint_spec_kind;
 
+typedef enum duckwm_topic {
+    DUCKWM_TOPIC_SCENE = 0,
+    DUCKWM_TOPIC_FOCUS = 1,
+    DUCKWM_TOPIC_NAMES = 2,
+    DUCKWM_TOPIC_OUTPUTS = 3,
+} duckwm_topic;
+
 typedef enum duckwm_value_kind {
     DUCKWM_VALUE_NIL = 0,
     DUCKWM_VALUE_BOOLEAN = 1,
@@ -450,6 +464,7 @@ typedef enum duckwm_call_args_kind {
     DUCKWM_CALL_ARGS_ARRANGER = 2,
     DUCKWM_CALL_ARGS_FACTORY = 3,
     DUCKWM_CALL_ARGS_LINE = 4,
+    DUCKWM_CALL_ARGS_NOTICE = 5,
 } duckwm_call_args_kind;
 
 typedef enum duckwm_arranger_event {
@@ -890,6 +905,11 @@ struct duckwm_eval_args {
     const char *source;
 };
 
+struct duckwm_get_layout_args {
+    bool has_id;
+    uint32_t id;
+};
+
 struct duckwm_layout_spec {
     const duckwm_node_spec *nodes;
     size_t nodes_len;
@@ -1012,6 +1032,15 @@ struct duckwm_set_group_outline_of_args {
     uint32_t color;
 };
 
+struct duckwm_subscribe_args {
+    duckwm_topic topic;
+    duckwm_callback callback;
+};
+
+struct duckwm_unsubscribe_args {
+    uint32_t id;
+};
+
 typedef struct duckwm_value_list {
     const duckwm_value *items;
     size_t len;
@@ -1064,6 +1093,13 @@ struct duckwm_window_info {
 
 struct duckwm_call_args_line {
     const char *text;
+};
+
+struct duckwm_notice {
+    duckwm_topic topic;
+    uint64_t serial;
+    bool has_id;
+    uint32_t id;
 };
 
 struct duckwm_add_rule_args {
@@ -1265,6 +1301,7 @@ struct duckwm_command {
         duckwm_setenv_args setenv;
         duckwm_exec_once_args exec_once;
         duckwm_eval_args eval;
+        duckwm_get_layout_args get_layout;
         duckwm_set_layout_args set_layout;
         duckwm_set_arranger_args set_arranger;
         duckwm_register_arranger_args register_arranger;
@@ -1280,6 +1317,8 @@ struct duckwm_command {
         duckwm_one get_group_members;
         duckwm_set_group_outline_args set_group_outline;
         duckwm_set_group_outline_of_args set_group_outline_of;
+        duckwm_subscribe_args subscribe;
+        duckwm_unsubscribe_args unsubscribe;
     };
 };
 
@@ -1289,6 +1328,7 @@ struct duckwm_call_args {
         duckwm_call_args_rule rule;
         duckwm_snapshot arranger;
         duckwm_call_args_line line;
+        duckwm_notice notice;
     };
 };
 
@@ -1377,6 +1417,11 @@ bool duckwm_parse_combo(const char *combo, uint32_t *mods, const char **key);
 size_t duckwm_format_combo(uint32_t mods, const char *key, char *buf, size_t len);
 /* Register h and bind it to a key by name. */
 duckwm_status duckwm_bind_key(duckwm_client *c, const char *combo, duckwm_handler h, void *userdata);
+/* Register h and subscribe it to topic: it's called (from duckwm_serve or
+ * duckwm_dispatch) with args of kind notice once a change is committed.
+ * duckwm doesn't wait for it; commands it replies with run as a request of
+ * their own. Returns the subscription's id, 0 on failure. */
+uint32_t duckwm_subscribe_to(duckwm_client *c, duckwm_topic topic, duckwm_handler h, void *userdata);
 /* Bind a key to commands duckwm runs itself, so the key never waits on us. */
 duckwm_status duckwm_bind_key_commands(duckwm_client *c, const char *combo,
                                        const duckwm_command *cmds, size_t n);
@@ -3596,14 +3641,16 @@ static inline duckwm_status duckwm_eval(duckwm_client *c, const char *source, du
     return duckwm_run(c, &cmd, 1, out);
 }
 
-static inline duckwm_command duckwm_cmd_get_layout(void) {
+static inline duckwm_command duckwm_cmd_get_layout(const uint32_t *id) {
     duckwm_command cmd;
     memset(&cmd, 0, sizeof cmd);
     cmd.kind = DUCKWM_COMMAND_GET_LAYOUT;
+    cmd.get_layout.has_id = id != NULL;
+    if (id) cmd.get_layout.id = *id;
     return cmd;
 }
-static inline duckwm_status duckwm_get_layout(duckwm_client *c, duckwm_results *out) {
-    duckwm_command cmd = duckwm_cmd_get_layout();
+static inline duckwm_status duckwm_get_layout(duckwm_client *c, const uint32_t *id, duckwm_results *out) {
+    duckwm_command cmd = duckwm_cmd_get_layout(id);
     return duckwm_run(c, &cmd, 1, out);
 }
 
@@ -3716,6 +3763,17 @@ static inline duckwm_command duckwm_cmd_print_graph_pretty(const uint32_t *cols,
 }
 static inline duckwm_status duckwm_print_graph_pretty(duckwm_client *c, const uint32_t *cols, const uint32_t *rows, duckwm_results *out) {
     duckwm_command cmd = duckwm_cmd_print_graph_pretty(cols, rows);
+    return duckwm_run(c, &cmd, 1, out);
+}
+
+static inline duckwm_command duckwm_cmd_get_scene(void) {
+    duckwm_command cmd;
+    memset(&cmd, 0, sizeof cmd);
+    cmd.kind = DUCKWM_COMMAND_GET_SCENE;
+    return cmd;
+}
+static inline duckwm_status duckwm_get_scene(duckwm_client *c, duckwm_results *out) {
+    duckwm_command cmd = duckwm_cmd_get_scene();
     return duckwm_run(c, &cmd, 1, out);
 }
 
@@ -3877,6 +3935,31 @@ static inline duckwm_command duckwm_cmd_focus_child(void) {
 }
 static inline duckwm_status duckwm_focus_child(duckwm_client *c, duckwm_results *out) {
     duckwm_command cmd = duckwm_cmd_focus_child();
+    return duckwm_run(c, &cmd, 1, out);
+}
+
+static inline duckwm_command duckwm_cmd_subscribe(duckwm_topic topic, uint64_t callback) {
+    duckwm_command cmd;
+    memset(&cmd, 0, sizeof cmd);
+    cmd.kind = DUCKWM_COMMAND_SUBSCRIBE;
+    cmd.subscribe.topic = topic;
+    cmd.subscribe.callback.id = callback;
+    return cmd;
+}
+static inline duckwm_status duckwm_subscribe(duckwm_client *c, duckwm_topic topic, uint64_t callback, duckwm_results *out) {
+    duckwm_command cmd = duckwm_cmd_subscribe(topic, callback);
+    return duckwm_run(c, &cmd, 1, out);
+}
+
+static inline duckwm_command duckwm_cmd_unsubscribe(uint32_t id) {
+    duckwm_command cmd;
+    memset(&cmd, 0, sizeof cmd);
+    cmd.kind = DUCKWM_COMMAND_UNSUBSCRIBE;
+    cmd.unsubscribe.id = id;
+    return cmd;
+}
+static inline duckwm_status duckwm_unsubscribe(duckwm_client *c, uint32_t id, duckwm_results *out) {
+    duckwm_command cmd = duckwm_cmd_unsubscribe(id);
     return duckwm_run(c, &cmd, 1, out);
 }
 

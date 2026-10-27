@@ -437,6 +437,31 @@ export fn duckwm_bind_key(conn: *Conn, combo: [*:0]const u8, h: Handler, userdat
     return .ok;
 }
 
+/// Register h and subscribe it to topic: it gets args of kind notice. Returns
+/// the subscription's id, 0 on failure (duckwm_last_error says why).
+export fn duckwm_subscribe_to(conn: *Conn, topic: ct.duckwm_topic, h: Handler, userdata: ?*anyopaque) u32 {
+    var arena: std.heap.ArenaAllocator = .init(gpa);
+    defer arena.deinit();
+    const t = std.enums.fromInt(protocol.Topic, @backingInt(topic)) orelse {
+        _ = conn.fail(error.Invalid);
+        return 0;
+    };
+    const id = duckwm_register(conn, h, userdata);
+    if (id == 0) {
+        _ = conn.fail(error.OutOfMemory);
+        return 0;
+    }
+    const v = conn.c.run_one(arena.allocator(), .{ .subscribe = .{
+        .topic = t,
+        .callback = .{ .id = id },
+    } }) catch |err| {
+        duckwm_unregister(conn, id);
+        _ = conn.fail(err);
+        return 0;
+    };
+    return std.math.cast(u32, duckwm.value.int(v) orelse 0) orelse 0;
+}
+
 export fn duckwm_bind_key_commands(conn: *Conn, combo: [*:0]const u8, cmds: ?[*]const ct.duckwm_command, n: usize) Status {
     var arena: std.heap.ArenaAllocator = .init(gpa);
     defer arena.deinit();
@@ -801,6 +826,10 @@ const Fake = struct {
         try f.frame(try wire.encode_server_call(f.arena.allocator(), .{ .callback = callback, .args = args, .nested = true }));
     }
 
+    fn event(f: *Fake, callback: u64, notice: protocol.Notice) !void {
+        try f.frame(try wire.encode_server_event(f.arena.allocator(), .{ .callback = callback, .notice = notice }));
+    }
+
     fn recv(f: *Fake) !protocol.ClientMessage {
         const a = f.arena.allocator();
         var len: [4]u8 = undefined;
@@ -917,6 +946,27 @@ test "within from C: the scope put back, and the token freed" {
     try f.respond(&.{.nil}, null);
     try testing.expectEqual(Status.ok, duckwm_within_end(conn, s));
     try testing.expect((try f.recv()).request.commands[0].set_scope.path == null);
+}
+
+const OnFocus = struct {
+    var id: u32 = 0;
+
+    fn on(_: ?*anyopaque, _: *Conn, args: *const ct.duckwm_call_args, _: *Reply) callconv(.c) void {
+        std.debug.assert(args.kind == .notice);
+        std.debug.assert(args.u.notice.topic == .focus);
+        id = args.u.notice.id;
+    }
+};
+
+test "a C subscriber gets a notice" {
+    const conn, var f = try pair();
+    defer teardown(conn, &f);
+    try f.respond(&.{.{ .integer = 2 }}, null);
+    try testing.expectEqual(@as(u32, 2), duckwm_subscribe_to(conn, .focus, OnFocus.on, null));
+    const cb = (try f.recv()).request.commands[0].subscribe.callback.id;
+    try f.event(cb, .{ .topic = .focus, .serial = 1, .id = 6 });
+    try testing.expectEqual(Status.ok, duckwm_dispatch(conn));
+    try testing.expectEqual(@as(u32, 6), OnFocus.id);
 }
 
 test "a C callback, its nested request, and its reply" {

@@ -436,6 +436,11 @@ const c_api =
     \\size_t duckwm_format_combo(uint32_t mods, const char *key, char *buf, size_t len);
     \\/* Register h and bind it to a key by name. */
     \\duckwm_status duckwm_bind_key(duckwm_client *c, const char *combo, duckwm_handler h, void *userdata);
+    \\/* Register h and subscribe it to topic: it's called (from duckwm_serve or
+    \\ * duckwm_dispatch) with args of kind notice once a change is committed.
+    \\ * duckwm doesn't wait for it; commands it replies with run as a request of
+    \\ * their own. Returns the subscription's id, 0 on failure. */
+    \\uint32_t duckwm_subscribe_to(duckwm_client *c, duckwm_topic topic, duckwm_handler h, void *userdata);
     \\/* Bind a key to commands duckwm runs itself, so the key never waits on us. */
     \\duckwm_status duckwm_bind_key_commands(duckwm_client *c, const char *combo,
     \\                                       const duckwm_command *cmds, size_t n);
