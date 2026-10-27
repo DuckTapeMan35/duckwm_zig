@@ -451,6 +451,16 @@ const c_api =
     \\ * library: for things to do once per session. */
     \\bool duckwm_startup(duckwm_client *c);
     \\
+    \\/* ---- names ---- */
+    \\
+    \\typedef struct duckwm_scope duckwm_scope;
+    \\/* Binds, rules and settings made until duckwm_within_end apply only in
+    \\ * path ("DP-1/web/chat"); nested, the paths add up. The scope is the
+    \\ * connection's. NULL on failure (duckwm_last_error says why). */
+    \\duckwm_scope *duckwm_within(duckwm_client *c, const char *path);
+    \\/* Put back the scope from before duckwm_within, and free s (even on failure). */
+    \\duckwm_status duckwm_within_end(duckwm_client *c, duckwm_scope *s);
+    \\
     \\/* ---- geometry ---- */
     \\
     \\/* Take a piece off one side: px pixels, or (px 0) a fraction of the length. */

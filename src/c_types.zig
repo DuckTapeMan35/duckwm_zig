@@ -63,6 +63,12 @@ pub const duckwm_command_kind = enum(c_int) {
     @"get_node_info" = 214,
     @"get_split_ratios" = 215,
     @"get_all_windows" = 216,
+    @"set_name" = 217,
+    @"get_name" = 218,
+    @"find" = 219,
+    @"get_path" = 220,
+    @"set_scope" = 221,
+    @"get_scope" = 222,
     @"screen_width" = 300,
     @"screen_height" = 301,
     @"get_work_area" = 302,
@@ -420,6 +426,19 @@ pub const duckwm_set_node_window_args = extern struct {
 pub const duckwm_move_window_to_node_args = extern struct {
     @"src": u32,
     @"dst": u32,
+};
+
+pub const duckwm_set_name_args = extern struct {
+    @"id": u32,
+    @"name": ?[*:0]const u8,
+};
+
+pub const duckwm_find_args = extern struct {
+    @"path": ?[*:0]const u8,
+};
+
+pub const duckwm_set_scope_args = extern struct {
+    @"path": ?[*:0]const u8,
 };
 
 pub const duckwm_set_pan_args = extern struct {
@@ -1034,6 +1053,11 @@ pub const duckwm_command = extern struct {
         @"get_node_geometry": duckwm_one,
         @"get_node_info": duckwm_one,
         @"get_split_ratios": duckwm_one,
+        @"set_name": duckwm_set_name_args,
+        @"get_name": duckwm_one,
+        @"find": duckwm_find_args,
+        @"get_path": duckwm_one,
+        @"set_scope": duckwm_set_scope_args,
         @"set_pan": duckwm_set_pan_args,
         @"pan_by": duckwm_pan_by_args,
         @"set_virtual_size": duckwm_set_virtual_size_args,

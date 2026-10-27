@@ -34,6 +34,9 @@ typedef struct duckwm_reparent_args duckwm_reparent_args;
 typedef struct duckwm_set_reparent_strategy_args duckwm_set_reparent_strategy_args;
 typedef struct duckwm_set_node_window_args duckwm_set_node_window_args;
 typedef struct duckwm_move_window_to_node_args duckwm_move_window_to_node_args;
+typedef struct duckwm_set_name_args duckwm_set_name_args;
+typedef struct duckwm_find_args duckwm_find_args;
+typedef struct duckwm_set_scope_args duckwm_set_scope_args;
 typedef struct duckwm_set_pan_args duckwm_set_pan_args;
 typedef struct duckwm_pan_by_args duckwm_pan_by_args;
 typedef struct duckwm_set_virtual_size_args duckwm_set_virtual_size_args;
@@ -199,6 +202,12 @@ typedef enum duckwm_command_kind {
     DUCKWM_COMMAND_GET_NODE_INFO = 214,
     DUCKWM_COMMAND_GET_SPLIT_RATIOS = 215,
     DUCKWM_COMMAND_GET_ALL_WINDOWS = 216,
+    DUCKWM_COMMAND_SET_NAME = 217,
+    DUCKWM_COMMAND_GET_NAME = 218,
+    DUCKWM_COMMAND_FIND = 219,
+    DUCKWM_COMMAND_GET_PATH = 220,
+    DUCKWM_COMMAND_SET_SCOPE = 221,
+    DUCKWM_COMMAND_GET_SCOPE = 222,
     DUCKWM_COMMAND_SCREEN_WIDTH = 300,
     DUCKWM_COMMAND_SCREEN_HEIGHT = 301,
     DUCKWM_COMMAND_GET_WORK_AREA = 302,
@@ -541,6 +550,19 @@ struct duckwm_set_node_window_args {
 struct duckwm_move_window_to_node_args {
     uint32_t src;
     uint32_t dst;
+};
+
+struct duckwm_set_name_args {
+    uint32_t id;
+    const char *name;
+};
+
+struct duckwm_find_args {
+    const char *path;
+};
+
+struct duckwm_set_scope_args {
+    const char *path;
 };
 
 struct duckwm_set_pan_args {
@@ -1155,6 +1177,11 @@ struct duckwm_command {
         duckwm_one get_node_geometry;
         duckwm_one get_node_info;
         duckwm_one get_split_ratios;
+        duckwm_set_name_args set_name;
+        duckwm_one get_name;
+        duckwm_find_args find;
+        duckwm_one get_path;
+        duckwm_set_scope_args set_scope;
         duckwm_set_pan_args set_pan;
         duckwm_pan_by_args pan_by;
         duckwm_set_virtual_size_args set_virtual_size;
@@ -1364,6 +1391,16 @@ duckwm_platform duckwm_get_platform(const duckwm_client *c);
 /* True for the first connection to this duckwm process, from any client
  * library: for things to do once per session. */
 bool duckwm_startup(duckwm_client *c);
+
+/* ---- names ---- */
+
+typedef struct duckwm_scope duckwm_scope;
+/* Binds, rules and settings made until duckwm_within_end apply only in
+ * path ("DP-1/web/chat"); nested, the paths add up. The scope is the
+ * connection's. NULL on failure (duckwm_last_error says why). */
+duckwm_scope *duckwm_within(duckwm_client *c, const char *path);
+/* Put back the scope from before duckwm_within, and free s (even on failure). */
+duckwm_status duckwm_within_end(duckwm_client *c, duckwm_scope *s);
 
 /* ---- geometry ---- */
 
@@ -2193,6 +2230,78 @@ static inline duckwm_command duckwm_cmd_get_all_windows(void) {
 }
 static inline duckwm_status duckwm_get_all_windows(duckwm_client *c, duckwm_results *out) {
     duckwm_command cmd = duckwm_cmd_get_all_windows();
+    return duckwm_run(c, &cmd, 1, out);
+}
+
+static inline duckwm_command duckwm_cmd_set_name(uint32_t id, const char *name) {
+    duckwm_command cmd;
+    memset(&cmd, 0, sizeof cmd);
+    cmd.kind = DUCKWM_COMMAND_SET_NAME;
+    cmd.set_name.id = id;
+    cmd.set_name.name = name;
+    return cmd;
+}
+static inline duckwm_status duckwm_set_name(duckwm_client *c, uint32_t id, const char *name, duckwm_results *out) {
+    duckwm_command cmd = duckwm_cmd_set_name(id, name);
+    return duckwm_run(c, &cmd, 1, out);
+}
+
+static inline duckwm_command duckwm_cmd_get_name(uint32_t id) {
+    duckwm_command cmd;
+    memset(&cmd, 0, sizeof cmd);
+    cmd.kind = DUCKWM_COMMAND_GET_NAME;
+    cmd.get_name.id = id;
+    return cmd;
+}
+static inline duckwm_status duckwm_get_name(duckwm_client *c, uint32_t id, duckwm_results *out) {
+    duckwm_command cmd = duckwm_cmd_get_name(id);
+    return duckwm_run(c, &cmd, 1, out);
+}
+
+static inline duckwm_command duckwm_cmd_find(const char *path) {
+    duckwm_command cmd;
+    memset(&cmd, 0, sizeof cmd);
+    cmd.kind = DUCKWM_COMMAND_FIND;
+    cmd.find.path = path;
+    return cmd;
+}
+static inline duckwm_status duckwm_find(duckwm_client *c, const char *path, duckwm_results *out) {
+    duckwm_command cmd = duckwm_cmd_find(path);
+    return duckwm_run(c, &cmd, 1, out);
+}
+
+static inline duckwm_command duckwm_cmd_get_path(uint32_t id) {
+    duckwm_command cmd;
+    memset(&cmd, 0, sizeof cmd);
+    cmd.kind = DUCKWM_COMMAND_GET_PATH;
+    cmd.get_path.id = id;
+    return cmd;
+}
+static inline duckwm_status duckwm_get_path(duckwm_client *c, uint32_t id, duckwm_results *out) {
+    duckwm_command cmd = duckwm_cmd_get_path(id);
+    return duckwm_run(c, &cmd, 1, out);
+}
+
+static inline duckwm_command duckwm_cmd_set_scope(const char *path) {
+    duckwm_command cmd;
+    memset(&cmd, 0, sizeof cmd);
+    cmd.kind = DUCKWM_COMMAND_SET_SCOPE;
+    cmd.set_scope.path = path;
+    return cmd;
+}
+static inline duckwm_status duckwm_set_scope(duckwm_client *c, const char *path, duckwm_results *out) {
+    duckwm_command cmd = duckwm_cmd_set_scope(path);
+    return duckwm_run(c, &cmd, 1, out);
+}
+
+static inline duckwm_command duckwm_cmd_get_scope(void) {
+    duckwm_command cmd;
+    memset(&cmd, 0, sizeof cmd);
+    cmd.kind = DUCKWM_COMMAND_GET_SCOPE;
+    return cmd;
+}
+static inline duckwm_status duckwm_get_scope(duckwm_client *c, duckwm_results *out) {
+    duckwm_command cmd = duckwm_cmd_get_scope();
     return duckwm_run(c, &cmd, 1, out);
 }
 

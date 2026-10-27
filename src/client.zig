@@ -53,7 +53,12 @@ pub const Platform = enum { x11, river };
 
 pub const WorkspaceState = enum { focused, active, inactive };
 
-pub const Workspace = struct { position: u32, state: WorkspaceState };
+/// One workspace at the current level. id is its node id, for set_name
+/// (null from a duckwm too old to say).
+pub const Workspace = struct { position: u32, state: WorkspaceState, id: ?u32 = null };
+
+/// What within hands back for end_within: the scope to put back.
+pub const Within = struct { outer: ?[]const u8 };
 
 pub const Client = struct {
     core: core.Client,
@@ -276,9 +281,28 @@ pub const Client = struct {
                 WorkspaceState,
                 value.str(value.get(w, "state")) orelse "",
             ) orelse return error.Unexpected;
-            o.* = .{ .position = std.math.cast(u32, pos) orelse return error.Unexpected, .state = state };
+            const id: ?u32 = if (value.int(value.get(w, "id"))) |i| std.math.cast(u32, i) else null;
+            o.* = .{ .position = std.math.cast(u32, pos) orelse return error.Unexpected, .state = state, .id = id };
         }
         return out;
+    }
+
+    // ---- names ----
+    /// Binds, rules and settings made from now until end_within apply only in
+    /// path ("DP-1/web/chat"); nested, the paths add up. The scope is this
+    /// connection's. What it returns lives in arena, so arena must too:
+    ///     const w = try c.within(arena, "web");
+    ///     defer c.end_within(arena, w) catch {};
+    pub fn within(c: *Client, arena: Allocator, path: []const u8) Error!Within {
+        const outer = value.str(try c.run_one(arena, .get_scope));
+        const full = if (outer) |o| try std.fmt.allocPrint(arena, "{s}/{s}", .{ o, path }) else path;
+        _ = try c.run_one(arena, .{ .set_scope = .{ .path = full } });
+        return .{ .outer = outer };
+    }
+
+    /// Put back the scope from before within.
+    pub fn end_within(c: *Client, arena: Allocator, w: Within) Error!void {
+        _ = try c.run_one(arena, .{ .set_scope = .{ .path = w.outer } });
     }
 };
 
@@ -387,6 +411,33 @@ test "bind by name, and typed keybinds" {
     const binds = try c.get_keybinds(a);
     var buf: [32]u8 = undefined;
     try testing.expectEqualStrings("super+Return", try std.fmt.bufPrint(&buf, "{f}", .{binds[0]}));
+}
+
+test "within adds up, and end_within puts the scope back" {
+    var c, var f = try pair();
+    defer teardown(&c, &f);
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+
+    try f.respond(&.{.{ .str = "DP-1" }}); // get_scope
+    try f.respond(&.{.nil}); // set_scope
+    const w = try c.within(a, "web");
+    try testing.expect((try f.recv()).request.commands[0] == .get_scope);
+    try testing.expectEqualStrings("DP-1/web", (try f.recv()).request.commands[0].set_scope.path.?);
+
+    try f.respond(&.{.nil});
+    try c.end_within(a, w);
+    try testing.expectEqualStrings("DP-1", (try f.recv()).request.commands[0].set_scope.path.?);
+
+    // A workspace's id, when duckwm gives it.
+    const ws = [_]Value.Field{
+        .{ .key = "position", .value = .{ .integer = 1 } },
+        .{ .key = "state", .value = .{ .str = "focused" } },
+        .{ .key = "id", .value = .{ .integer = 12 } },
+    };
+    try f.respond(&.{.{ .list = &.{.{ .map = &ws }} }});
+    try testing.expectEqual(@as(?u32, 12), (try c.get_workspace_states(a))[0].id);
 }
 
 test "the arranger handshake" {

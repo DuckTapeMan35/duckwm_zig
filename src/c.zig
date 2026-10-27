@@ -466,6 +466,45 @@ export fn duckwm_startup(conn: *Conn) bool {
     return conn.c.startup();
 }
 
+// ---- names ----
+/// What duckwm_within hands back: the scope to put back, owned.
+const Scope = struct { outer: ?[:0]u8 = null };
+
+export fn duckwm_within(conn: *Conn, path: [*:0]const u8) ?*Scope {
+    var arena: std.heap.ArenaAllocator = .init(gpa);
+    defer arena.deinit();
+    const a = arena.allocator();
+    const s = gpa.create(Scope) catch {
+        _ = conn.fail(error.OutOfMemory);
+        return null;
+    };
+    s.* = .{};
+    const w = conn.c.within(a, std.mem.span(path)) catch |err| {
+        gpa.destroy(s);
+        _ = conn.fail(err);
+        return null;
+    };
+    if (w.outer) |o| s.outer = gpa.dupeSentinel(u8, o, 0) catch {
+        conn.c.end_within(a, w) catch {}; // don't leave the scope set
+        gpa.destroy(s);
+        _ = conn.fail(error.OutOfMemory);
+        return null;
+    };
+    return s;
+}
+
+export fn duckwm_within_end(conn: *Conn, scope: ?*Scope) Status {
+    const s = scope orelse return conn.fail(error.Invalid);
+    defer {
+        if (s.outer) |o| gpa.free(o);
+        gpa.destroy(s);
+    }
+    var arena: std.heap.ArenaAllocator = .init(gpa);
+    defer arena.deinit();
+    conn.c.end_within(arena.allocator(), .{ .outer = s.outer }) catch |err| return conn.fail(err);
+    return .ok;
+}
+
 // ---- geometry ----
 const Rect = duckwm.Rect;
 
@@ -866,6 +905,19 @@ const OnKey = struct {
         if (res.values.?[0].u.integer != 7) _ = duckwm_reply_error(reply, "wrong window");
     }
 };
+
+test "within from C: the scope put back, and the token freed" {
+    const conn, var f = try pair();
+    defer teardown(conn, &f);
+    try f.respond(&.{.nil}, null); // get_scope: everywhere
+    try f.respond(&.{.nil}, null); // set_scope
+    const s = duckwm_within(conn, "web") orelse return error.TestUnexpectedResult;
+    _ = try f.recv();
+    try testing.expectEqualStrings("web", (try f.recv()).request.commands[0].set_scope.path.?);
+    try f.respond(&.{.nil}, null);
+    try testing.expectEqual(Status.ok, duckwm_within_end(conn, s));
+    try testing.expect((try f.recv()).request.commands[0].set_scope.path == null);
+}
 
 test "a C callback, its nested request, and its reply" {
     const conn, var f = try pair();

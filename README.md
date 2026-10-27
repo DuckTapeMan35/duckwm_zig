@@ -13,6 +13,10 @@ to C as `libduckwm`.
   rows and columns (`tree`), rectangles (`geometry`) and `arrange.track`.
 - **Callbacks** run inside the transaction that called them: their requests
   are part of it, and their reply finishes it.
+- **Names and scopes**: `set_name` / `find` name and find nodes by path
+  (`"DP-1/web"`); `c.within(arena, "web")` ... `c.end_within(arena, w)`
+  (`duckwm_within` / `duckwm_within_end`) makes the binds, rules and gaps set
+  up between apply only there.
 - **`forever`** keeps a config up across duckwm restarts.
 
 Blocking and single-threaded: callbacks run inside `run`, `serve` and

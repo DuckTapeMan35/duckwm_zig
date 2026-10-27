@@ -29,6 +29,7 @@ pub const Error = client.Error;
 pub const Platform = client.Platform;
 pub const Workspace = client.Workspace;
 pub const WorkspaceState = client.WorkspaceState;
+pub const Within = client.Within;
 
 pub const socket_path = core.socket_path;
 pub const forever = forever_mod.forever;
